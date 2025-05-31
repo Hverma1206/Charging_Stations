@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Use relative URLs instead of absolute URLs
+// Use environment variable for API URL
 const API_URL = '/api';
 
 const api = axios.create({

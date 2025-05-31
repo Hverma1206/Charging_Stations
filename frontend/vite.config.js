@@ -2,7 +2,6 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import dotenv from 'dotenv'
 
-// Load environment variables
 dotenv.config()
 
 export default defineConfig({
@@ -10,7 +9,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://3.109.201.75:5000',
+        target: process.env.VITE_API_URL,
         changeOrigin: true,
       }
     }
