@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "${VITE_API_URL}/api/:path*"
+      "destination": "http://3.109.201.75:5000/api/:path*"
     }
   ]
 }

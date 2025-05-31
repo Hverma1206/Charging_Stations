@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-// Use environment variable for API URL
 const API_URL = '/api';
 
 const api = axios.create({
