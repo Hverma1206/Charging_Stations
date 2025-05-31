@@ -10,5 +10,13 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  resolve: {
+    alias: {
+      '@': '/src'
+    }
+  },
+  optimizeDeps: {
+    include: ['leaflet']
   }
 })

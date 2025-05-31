@@ -8,13 +8,11 @@ const filteredStations = ref([]);
 const loading = ref(true);
 const error = ref(null);
 
-// Filter states
 const statusFilter = ref('All');
 const connectorTypeFilter = ref('All');
 const minPowerOutput = ref(0);
 const searchQuery = ref('');
 
-// Get unique values for filters
 const statusOptions = computed(() => {
   const statuses = ['All', ...new Set(stations.value.map(s => s.status))];
   return statuses;
@@ -47,22 +45,18 @@ const fetchStations = async () => {
 
 const applyFilters = () => {
   filteredStations.value = stations.value.filter(station => {
-    // Apply status filter
     if (statusFilter.value !== 'All' && station.status !== statusFilter.value) {
       return false;
     }
     
-    // Apply connector type filter
     if (connectorTypeFilter.value !== 'All' && station.connectorType !== connectorTypeFilter.value) {
       return false;
     }
     
-    // Apply power output filter
     if (station.powerOutput < minPowerOutput.value) {
       return false;
     }
     
-    // Apply search query
     if (searchQuery.value) {
       const query = searchQuery.value.toLowerCase();
       const nameMatch = station.name.toLowerCase().includes(query);
@@ -90,12 +84,10 @@ const handleDelete = async (stationId) => {
   }
 };
 
-// Watch for filter changes
 const watchFilters = () => {
   applyFilters();
 };
 
-// Initialize component
 onMounted(() => {
   fetchStations();
 });

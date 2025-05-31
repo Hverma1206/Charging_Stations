@@ -8,7 +8,6 @@ const router = useRouter();
 const stationId = computed(() => route.params.id);
 const isEditMode = computed(() => !!stationId.value);
 
-// Form data
 const station = ref({
   name: '',
   location: {
@@ -28,7 +27,6 @@ const loading = ref(false);
 const error = ref('');
 const successMessage = ref('');
 
-// Load station data if in edit mode
 const fetchStation = async () => {
   if (!isEditMode.value) return;
   
@@ -45,7 +43,6 @@ const fetchStation = async () => {
   }
 };
 
-// Handle form submission
 const handleSubmit = async () => {
   try {
     loading.value = true;
@@ -58,7 +55,6 @@ const handleSubmit = async () => {
     } else {
       await stationService.create(station.value);
       successMessage.value = 'Station created successfully!';
-      // Reset form
       station.value = {
         name: '',
         location: {
@@ -72,7 +68,6 @@ const handleSubmit = async () => {
       };
     }
     
-    // Redirect after a short delay
     setTimeout(() => {
       router.push('/stations');
     }, 2000);
@@ -85,9 +80,7 @@ const handleSubmit = async () => {
   }
 };
 
-// Initialize map coordinates
 const initMap = () => {
-  // Use geolocation API to get current location if available
   if (navigator.geolocation && !isEditMode.value) {
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -95,7 +88,6 @@ const initMap = () => {
         station.value.location.longitude = position.coords.longitude;
       },
       () => {
-        // Default coordinates if geolocation fails
         station.value.location.latitude = 40.7128;
         station.value.location.longitude = -74.0060;
       }
@@ -103,7 +95,6 @@ const initMap = () => {
   }
 };
 
-// Handle cancel button
 const handleCancel = () => {
   router.push('/stations');
 };

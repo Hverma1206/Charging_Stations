@@ -15,18 +15,15 @@ const map = ref(null);
 const markers = ref({});
 let L = null;
 
-// Get station details when a station is selected
 const getStationDetails = async (id) => {
   try {
     const response = await stationService.getById(id);
     selectedStation.value = response.data;
     
-    // Center map on selected station
     if (map.value && selectedStation.value) {
       const { latitude, longitude } = selectedStation.value.location;
       map.value.setView([latitude, longitude], 15);
       
-      // Highlight the marker
       if (markers.value[id]) {
         markers.value[id].openPopup();
       }
@@ -37,7 +34,6 @@ const getStationDetails = async (id) => {
   }
 };
 
-// Fetch all stations
 const fetchStations = async () => {
   try {
     loading.value = true;
@@ -52,73 +48,81 @@ const fetchStations = async () => {
   }
 };
 
-// Add markers for stations
 const addStationMarkers = () => {
   if (!L || !map.value) return;
   
-  // Clear existing markers
   Object.values(markers.value).forEach(marker => {
     map.value.removeLayer(marker);
   });
   markers.value = {};
   
-  // Add markers for each station
   stations.value.forEach(station => {
     const { latitude, longitude } = station.location;
     
-    // Create marker
-    const marker = L.marker([latitude, longitude]).addTo(map.value);
+    if (!latitude || !longitude) return;
     
-    // Create popup
-    marker.bindPopup(`
+    const markerIcon = getMarkerIcon(station.status);
+    
+    const marker = L.marker([latitude, longitude], { icon: markerIcon }).addTo(map.value);
+    
+    const popupContent = `
       <div class="popup-content">
         <h3>${station.name}</h3>
-        <p><strong>Status:</strong> ${station.status}</p>
+        <p class="status status-${station.status.toLowerCase()}">${station.status}</p>
         <p><strong>Power:</strong> ${station.powerOutput}kW</p>
+        <p><strong>Connector:</strong> ${station.connectorType}</p>
         <button class="popup-btn" onclick="window.selectStation('${station._id}')">View Details</button>
       </div>
-    `);
+    `;
     
-    // Store marker reference
+    marker.bindPopup(popupContent);
+    
     markers.value[station._id] = marker;
-    
-    // Open popup if this is the selected station
-    if (selectedStationId.value === station._id) {
-      marker.openPopup();
-    }
+  });
+  
+  if (!selectedStationId.value && stations.value.length > 0) {
+    const markerGroup = L.featureGroup(Object.values(markers.value));
+    map.value.fitBounds(markerGroup.getBounds(), { padding: [50, 50] });
+  }
+};
+
+const getMarkerIcon = (status) => {
+  if (!L) return null;
+  
+  const iconUrl = status === 'Active' 
+    ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png'
+    : status === 'Maintenance'
+      ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png'
+      : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png';
+  
+  return L.icon({
+    iconUrl,
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
   });
 };
 
-// Initialize the map
 const initMap = async () => {
-  if (map.value) return; // Map already initialized
+  if (map.value) return;
   
   try {
-    // Import Leaflet dynamically to avoid SSR issues
     const leaflet = await import('leaflet');
     L = leaflet.default;
     
-    // Fix Leaflet icon paths
-    delete L.Icon.Default.prototype._getIconUrl;
-    L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
-    });
-    
-    // Create map
     const mapElement = document.getElementById('map');
     if (mapElement) {
       map.value = L.map('map').setView([40.7128, -74.0060], 10);
       
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
       }).addTo(map.value);
       
-      // Add markers for all stations
       addStationMarkers();
       
-      // Check if a specific station is selected from the URL
       if (selectedStationId.value) {
         getStationDetails(selectedStationId.value);
       }
@@ -131,27 +135,30 @@ const initMap = async () => {
   }
 };
 
-// Function to select a station from the map
 const selectStation = (id) => {
   selectedStation.value = stations.value.find(s => s._id === id);
 };
 
-// Watch for stations changes to update markers
 watch(stations, () => {
   addStationMarkers();
 });
 
-// Make the function available to the window object
+watch(selectedStationId, (newId) => {
+  if (newId) {
+    getStationDetails(newId);
+  } else {
+    selectedStation.value = null;
+  }
+});
+
 onMounted(() => {
   window.selectStation = selectStation;
   
   fetchStations().then(() => {
-    // Wait a moment for the DOM to update
     setTimeout(initMap, 100);
   });
 });
 
-// Clean up on component unmount
 onUnmounted(() => {
   if (map.value) {
     map.value.remove();
@@ -200,6 +207,16 @@ onUnmounted(() => {
           <strong>Connector Type:</strong> {{ selectedStation.connectorType }}
         </p>
       </div>
+      
+      <div class="details-actions" v-if="selectedStation">
+        <router-link 
+          v-if="selectedStation.owner === $auth?.state?.user?._id" 
+          :to="`/stations/${selectedStation._id}/edit`" 
+          class="edit-btn"
+        >
+          Edit Station
+        </router-link>
+      </div>
     </div>
   </div>
 </template>
@@ -215,12 +232,14 @@ onUnmounted(() => {
   flex: 1;
   position: relative;
   min-height: 400px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 #map {
   height: 100%;
   width: 100%;
-  border-radius: 8px;
   z-index: 1;
 }
 
@@ -299,7 +318,34 @@ onUnmounted(() => {
   margin: 0.5rem 0;
 }
 
-/* Leaflet popup styling */
+.details-actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.edit-btn {
+  background-color: #646cff;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+.edit-btn:hover {
+  background-color: #535bf2;
+}
+
+.leaflet-popup-content-wrapper {
+  background-color: #2a2a2a;
+  color: white;
+  border-radius: 8px;
+}
+
+.leaflet-popup-tip {
+  background-color: #2a2a2a;
+}
+
 .popup-content {
   padding: 0.5rem;
 }
@@ -314,6 +360,29 @@ onUnmounted(() => {
   font-size: 0.9rem;
 }
 
+.popup-content .status {
+  display: inline-block;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.popup-content .status-active {
+  background-color: rgba(0, 255, 0, 0.2);
+  color: #4caf50;
+}
+
+.popup-content .status-inactive {
+  background-color: rgba(255, 0, 0, 0.2);
+  color: #f44336;
+}
+
+.popup-content .status-maintenance {
+  background-color: rgba(255, 165, 0, 0.2);
+  color: #ff9800;
+}
+
 .popup-btn {
   margin-top: 0.5rem;
   padding: 0.3rem 0.5rem;
@@ -325,7 +394,10 @@ onUnmounted(() => {
   font-size: 0.8rem;
 }
 
-/* Fix for Leaflet controls z-index issues */
+.popup-btn:hover {
+  background-color: #535bf2;
+}
+
 .leaflet-top, .leaflet-bottom {
   z-index: 2 !important;
 }
